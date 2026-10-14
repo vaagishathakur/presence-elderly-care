@@ -1,0 +1,37 @@
+{
+  "name": "presence-caretaker-dashboard",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "backend:dev": "node elderly-monitoring-system/backend/src/server.js",
+    "db:init": "node elderly-monitoring-system/backend/src/database/init.js",
+    "db:seed": "node elderly-monitoring-system/backend/src/database/seed.js",
+    "db:reset": "node elderly-monitoring-system/backend/src/database/reset.js",
+    "nlp:dev": "python elderly-monitoring-system/nlp-service/main.py",
+    "test": "node --test elderly-monitoring-system/backend/tests/*.test.js",
+    "demo:scenarios": "node elderly-monitoring-system/backend/scripts/demo-walkthrough.js",
+    "dev": "vite --host 127.0.0.1",
+    "build": "vite build",
+    "preview": "vite preview --host 127.0.0.1"
+  },
+  "dependencies": {
+    "@vitejs/plugin-react": "^5.0.3",
+    "amazon-cognito-identity-js": "^6.3.22",
+    "ask-sdk-core": "^2.14.0",
+    "ask-sdk-express-adapter": "^2.14.0",
+    "ask-sdk-model": "^1.86.0",
+    "aws-jwt-verify": "^5.2.1",
+    "cors": "^2.8.6",
+    "dotenv": "^18.0.5",
+    "express": "^5.2.1",
+    "express-rate-limit": "^8.7.1",
+    "lucide-react": "^0.544.0",
+    "pg": "^8.23.1",
+    "react": "^19.1.1",
+    "react-dom": "^19.1.1",
+    "recharts": "^3.2.1",
+    "supertest": "^7.3.1",
+    "vite": "^7.1.6"
+  }
+}

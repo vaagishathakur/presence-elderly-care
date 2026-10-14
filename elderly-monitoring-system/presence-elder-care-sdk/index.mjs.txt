@@ -1,0 +1,138 @@
+
+import Alexa from 'ask-sdk-core';
+
+const LaunchRequestHandler = {
+  canHandle(handlerInput) {
+    return Alexa.getRequestType(handlerInput.requestEnvelope) === 'LaunchRequest';
+  },
+  handle(handlerInput) {
+    return handlerInput.responseBuilder
+      .speak('Welcome to Elder Care. How are you feeling today?')
+      .reprompt('You can tell me how you are feeling, ask for water, or request help.')
+      .getResponse();
+  }
+};
+
+const DailyCheckInIntentHandler = {
+  canHandle(handlerInput) {
+    return Alexa.getRequestType(handlerInput.requestEnvelope) === 'IntentRequest' &&
+      Alexa.getIntentName(handlerInput.requestEnvelope) === 'DailyCheckInIntent';
+  },
+  handle(handlerInput) {
+    return handlerInput.responseBuilder
+      .speak('Let us check in. How are you feeling today?')
+      .getResponse();
+  }
+};
+
+const RequestHelpIntentHandler = {
+  canHandle(handlerInput) {
+    return Alexa.getRequestType(handlerInput.requestEnvelope) === 'IntentRequest' &&
+      Alexa.getIntentName(handlerInput.requestEnvelope) === 'RequestHelpIntent';
+  },
+  handle(handlerInput) {
+    return handlerInput.responseBuilder
+      .speak('I am here to help. If you are in immediate danger, please contact local emergency services or a nearby caregiver.')
+      .getResponse();
+  }
+};
+
+const HydrationIntentHandler = {
+  canHandle(handlerInput) {
+    return Alexa.getRequestType(handlerInput.requestEnvelope) === 'IntentRequest' &&
+      Alexa.getIntentName(handlerInput.requestEnvelope) === 'HydrationIntent';
+  },
+  handle(handlerInput) {
+    return handlerInput.responseBuilder
+      .speak('This is your reminder to drink some water, if it is safe for you to do so.')
+      .getResponse();
+  }
+};
+
+const MoodCheckIntentHandler = {
+  canHandle(handlerInput) {
+    return Alexa.getRequestType(handlerInput.requestEnvelope) === 'IntentRequest' &&
+      Alexa.getIntentName(handlerInput.requestEnvelope) === 'MoodCheckIntent';
+  },
+  handle(handlerInput) {
+    return handlerInput.responseBuilder
+      .speak('Thank you for sharing that with me. Would you like to tell me a little more?')
+      .reprompt('You can tell me more about how you feel.')
+      .getResponse();
+  }
+};
+
+const HelpIntentHandler = {
+  canHandle(handlerInput) {
+    return Alexa.getRequestType(handlerInput.requestEnvelope) === 'IntentRequest' &&
+      Alexa.getIntentName(handlerInput.requestEnvelope) === 'AMAZON.HelpIntent';
+  },
+  handle(handlerInput) {
+    return handlerInput.responseBuilder
+      .speak('You can check in with me, ask for water, tell me how you feel, or request help.')
+      .getResponse();
+  }
+};
+
+const StopIntentHandler = {
+  canHandle(handlerInput) {
+    const type = Alexa.getRequestType(handlerInput.requestEnvelope);
+    const name = Alexa.getIntentName(handlerInput.requestEnvelope);
+    return type === 'IntentRequest' &&
+      (name === 'AMAZON.StopIntent' || name === 'AMAZON.CancelIntent');
+  },
+  handle(handlerInput) {
+    return handlerInput.responseBuilder
+      .speak('Take care. I am here whenever you need me.')
+      .getResponse();
+  }
+};
+
+const FallbackIntentHandler = {
+  canHandle(handlerInput) {
+    return Alexa.getRequestType(handlerInput.requestEnvelope) === 'IntentRequest' &&
+      Alexa.getIntentName(handlerInput.requestEnvelope) === 'AMAZON.FallbackIntent';
+  },
+  handle(handlerInput) {
+    return handlerInput.responseBuilder
+      .speak('I did not quite understand that. You can tell me how you feel, ask for water, or request help.')
+      .reprompt('How can I help you today?')
+      .getResponse();
+  }
+};
+
+const SessionEndedRequestHandler = {
+  canHandle(handlerInput) {
+    return Alexa.getRequestType(handlerInput.requestEnvelope) === 'SessionEndedRequest';
+  },
+  handle(handlerInput) {
+    return handlerInput.responseBuilder.getResponse();
+  }
+};
+
+const ErrorHandler = {
+  canHandle() {
+    return true;
+  },
+  handle(handlerInput, error) {
+    console.log('Error handled:', error.message);
+    return handlerInput.responseBuilder
+      .speak('Sorry, something went wrong. Please try again.')
+      .getResponse();
+  }
+};
+
+export const handler = Alexa.SkillBuilders.custom()
+  .addRequestHandlers(
+    LaunchRequestHandler,
+    DailyCheckInIntentHandler,
+    RequestHelpIntentHandler,
+    HydrationIntentHandler,
+    MoodCheckIntentHandler,
+    HelpIntentHandler,
+    StopIntentHandler,
+    FallbackIntentHandler,
+    SessionEndedRequestHandler
+  )
+  .addErrorHandlers(ErrorHandler)
+  .lambda();

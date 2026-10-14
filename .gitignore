@@ -1,0 +1,14 @@
+.env
+.env.*
+!.env.example
+node_modules/
+dist/
+tmp/
+output/
+
+# Deployment artifacts
+presence-lambda.zip
+lambda-pkg/
+
+# Generated ZIP packages
+*.zip

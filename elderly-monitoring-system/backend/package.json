@@ -1,0 +1,27 @@
+{
+  "name": "elderly-monitoring-backend",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node src/server.js",
+    "db:init": "node src/database/init.js",
+    "db:seed": "node src/database/seed.js",
+    "db:reset": "node src/database/reset.js",
+    "nlp:dev": "python ../nlp-service/main.py",
+    "test": "node --test tests/*.test.js",
+    "demo:scenarios": "node scripts/demo-walkthrough.js"
+  },
+  "dependencies": {
+    "ask-sdk-core": "^2.14.0",
+    "ask-sdk-express-adapter": "^2.14.0",
+    "ask-sdk-model": "^1.86.0",
+    "aws-jwt-verify": "^4.0.1",
+    "cors": "^2.8.6",
+    "dotenv": "^18.0.5",
+    "express": "^5.2.1",
+    "express-rate-limit": "^8.7.1",
+    "pg": "^8.23.1",
+    "supertest": "^7.3.1"
+  }
+}

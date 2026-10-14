@@ -1,0 +1,35 @@
+### Health check
+GET http://127.0.0.1:4000/api/health
+
+### Caregiver Identity & Assigned Elders (Replace with your Cognito ID Token)
+GET http://127.0.0.1:4000/api/me
+Authorization: Bearer <COGNITO_ID_TOKEN>
+
+### Get elderly user profile (Shanti Devi - ID: 1)
+GET http://127.0.0.1:4000/api/users/1
+Authorization: Bearer <COGNITO_ID_TOKEN>
+
+### Get elderly user dashboard status (Shanti Devi - ID: 1)
+GET http://127.0.0.1:4000/api/users/1/status
+Authorization: Bearer <COGNITO_ID_TOKEN>
+
+### Get elderly user interactions history (Shanti Devi - ID: 1)
+GET http://127.0.0.1:4000/api/users/1/interactions?limit=10&offset=0
+Authorization: Bearer <COGNITO_ID_TOKEN>
+
+### Voice intent ingestion / dev simulator (Protected with x-voice-api-key)
+POST http://127.0.0.1:4000/api/voice/intent
+Content-Type: application/json
+x-voice-api-key: voice-secret-key-presence-demo
+
+{
+  "userId": 1,
+  "sessionId": "session-dev-simulator-1",
+  "interactionIntent": "daily_check_in",
+  "transcript": "Namaste, I took my morning medicine and had breakfast.",
+  "response": "Namaste Shanti ji! Great to hear.",
+  "summary": "Morning check-in confirmed medicine and breakfast.",
+  "moodScore": 0.800,
+  "confidenceScore": 0.900,
+  "sentimentLabel": "positive"
+}

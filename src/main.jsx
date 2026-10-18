@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import {
   Activity,
@@ -50,7 +50,9 @@ import {
   YAxis,
 } from "recharts";
 import "./styles.css";
-import { api, onUnauthorized, setAuthToken } from "./api.js";
+import { api, onUnauthorized, setAuthToken, API_BASE } from "./api.js";
+
+export { API_BASE };
 import {
   completeNewPasswordChallenge,
   getCognitoConfig,
@@ -175,7 +177,7 @@ export function App() {
         api.getUserProfile(elderId).catch(() => null),
         api.getUserAlerts(elderId).catch(() => ({ alerts: [] })),
         api.getUserMedications(elderId).catch(() => ({ schedules: [], todayLogs: [] })),
-        api.getUserInteractions(elderId, { limit: 100 }).catch(() => ({ interactions: [] })),
+        api.getUserInteractions(elderId, { limit: 15 }).catch(() => ({ interactions: [] })),
       ]);
 
       if (statusData) setElderStatus(statusData);
@@ -559,17 +561,6 @@ function LoginScreen({ onLoginSuccess }) {
     }
   };
 
-  const handleDemoLogin = (demoToken, caregiverName, caregiverEmail) => {
-    setAuthToken(demoToken);
-    onLoginSuccess({
-      status: "SUCCESS",
-      idToken: demoToken,
-      name: caregiverName,
-      email: caregiverEmail,
-      isDemo: true,
-    });
-  };
-
   return (
     <div
       style={{
@@ -734,44 +725,6 @@ function LoginScreen({ onLoginSuccess }) {
             </button>
           </form>
         )}
-
-        {/* Demo Login Fallback (Visible only when VITE_USE_DEMO_AUTH=true) */}
-        {config.isDemoAuthEnabled && (
-          <div
-            style={{
-              marginTop: "24px",
-              paddingTop: "20px",
-              borderTop: "1px solid #e2e8f0",
-              textAlign: "center",
-            }}
-          >
-            <p style={{ margin: "0 0 10px", fontSize: "0.8rem", color: "#64748b", fontWeight: 600 }}>
-              DEVELOPMENT DEMO MODE (VITE_USE_DEMO_AUTH=true)
-            </p>
-            <div style={{ display: "flex", gap: "8px", justifyContent: "center" }}>
-              <button
-                type="button"
-                className="secondary-btn"
-                onClick={() =>
-                  handleDemoLogin("demo-token-caregiver-a", "Samridhi Pandey", "samridhi@example.com")
-                }
-                style={{ fontSize: "0.8rem", padding: "6px 12px" }}
-              >
-                Caregiver A (Shanti)
-              </button>
-              <button
-                type="button"
-                className="secondary-btn"
-                onClick={() =>
-                  handleDemoLogin("demo-token-caregiver-b", "Arjun Sharma", "arjun@example.com")
-                }
-                style={{ fontSize: "0.8rem", padding: "6px 12px" }}
-              >
-                Caregiver B (Ramesh)
-              </button>
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );
@@ -853,7 +806,6 @@ function Topbar({
       <div>
         <p className="eyebrow">
           Caregiver Session: <strong>{caregiverName}</strong> ({caregiverEmail})
-          {session?.isDemo && <span style={{ marginLeft: 8, color: "#bd8429" }}>[Demo Auth]</span>}
         </p>
         <h2>
           {selectedElder ? (

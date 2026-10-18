@@ -12,6 +12,11 @@ class FakeCognitoVerifier {
   }
 
   async verify(token) {
+    if (token === "expired-token-caregiver") {
+      const error = new Error("Token has expired");
+      error.name = "JwtExpiredError";
+      throw error;
+    }
     if (!token || !this.tokens[token]) {
       const error = new Error("Invalid token");
       error.name = "JwtVerificationError";
@@ -28,6 +33,8 @@ describe("Presence SDS Backend API Test Suite", () => {
 
   const tokenA = "valid-token-caregiver-a";
   const tokenB = "valid-token-caregiver-b";
+  const tokenTestUser = "valid-token-test-caregiver";
+  const tokenExpired = "expired-token-caregiver";
   const tokenAMatchingAmazon = "valid-token-a-matching-amazon";
   const tokenAMismatchingAmazon = "valid-token-a-mismatching-amazon";
   const tokenUnknownSub = "valid-token-unknown-sub";
@@ -41,6 +48,11 @@ describe("Presence SDS Backend API Test Suite", () => {
     [tokenB]: {
       sub: "cognito-sub-demo-b",
       email: "arjun@example.com",
+    },
+    [tokenTestUser]: {
+      sub: "b9ced498-d091-70d2-8457-c9d1b487c487",
+      email: "vaagisha2006@gmail.com",
+      name: "Vaagisha",
     },
     [tokenAMatchingAmazon]: {
       sub: "cognito-sub-demo-a",
@@ -182,6 +194,19 @@ describe("Presence SDS Backend API Test Suite", () => {
       assert.equal(res.body.assignedElders.length, 1);
       assert.equal(res.body.assignedElders[0].name, "Ramesh Kumar");
     });
+
+    test("Dedicated test caregiver returns Vaagisha and assigned Shanti Devi", async () => {
+      const res = await request(app)
+        .get("/api/me")
+        .set("Authorization", `Bearer ${tokenTestUser}`);
+
+      assert.equal(res.status, 200);
+      assert.equal(res.body.caregiver.name, "Vaagisha");
+      assert.equal(res.body.caregiver.email, "vaagisha2006@gmail.com");
+      assert.equal(res.body.caregiver.cognitoSub, "b9ced498-d091-70d2-8457-c9d1b487c487");
+      assert.equal(res.body.assignedElders.length, 1);
+      assert.equal(res.body.assignedElders[0].name, "Shanti Devi");
+    });
   });
 
   describe("4. Caregiver Authorization & User Scoping", () => {
@@ -269,6 +294,79 @@ describe("Presence SDS Backend API Test Suite", () => {
       assert.equal(res.status, 200);
       assert.ok(Array.isArray(res.body.interactions));
       assert.ok(res.body.interactions.length > 0);
+    });
+
+    test("Test caregiver can access assigned Shanti Devi status (200)", async () => {
+      const res = await request(app)
+        .get(`/api/users/${shantiId}/status`)
+        .set("Authorization", `Bearer ${tokenTestUser}`);
+
+      assert.equal(res.status, 200);
+      assert.equal(res.body.userId, shantiId);
+      assert.equal(res.body.name, "Shanti Devi");
+    });
+
+    test("Test caregiver cannot access unassigned Ramesh status (404)", async () => {
+      const res = await request(app)
+        .get(`/api/users/${rameshId}/status`)
+        .set("Authorization", `Bearer ${tokenTestUser}`);
+
+      assert.equal(res.status, 404);
+      assert.deepEqual(res.body, { message: "Not found." });
+    });
+
+    test("Caregiver B cannot access unassigned Shanti profile (404)", async () => {
+      const res = await request(app)
+        .get(`/api/users/${shantiId}`)
+        .set("Authorization", `Bearer ${tokenB}`);
+
+      assert.equal(res.status, 404);
+      assert.deepEqual(res.body, { message: "Not found." });
+    });
+
+    test("Caregiver A cannot list alerts for unassigned Ramesh (404)", async () => {
+      const res = await request(app)
+        .get(`/api/users/${rameshId}/alerts`)
+        .set("Authorization", `Bearer ${tokenA}`);
+
+      assert.equal(res.status, 404);
+      assert.deepEqual(res.body, { message: "Not found." });
+    });
+
+    test("Caregiver A cannot list medications for unassigned Ramesh (404)", async () => {
+      const res = await request(app)
+        .get(`/api/users/${rameshId}/medications`)
+        .set("Authorization", `Bearer ${tokenA}`);
+
+      assert.equal(res.status, 404);
+      assert.deepEqual(res.body, { message: "Not found." });
+    });
+
+    test("Request to /api/users/:id/status without token returns 401", async () => {
+      const res = await request(app).get(`/api/users/${shantiId}/status`);
+      assert.equal(res.status, 401);
+      assert.deepEqual(res.body, { message: "Authentication token required." });
+    });
+
+    test("Request to /api/users/:id/status with expired token returns 401", async () => {
+      const res = await request(app)
+        .get(`/api/users/${shantiId}/status`)
+        .set("Authorization", `Bearer ${tokenExpired}`);
+
+      assert.equal(res.status, 401);
+      assert.deepEqual(res.body, { message: "Invalid or expired token." });
+    });
+
+    test("Request to /api/users/:id/alerts without token returns 401", async () => {
+      const res = await request(app).get(`/api/users/${shantiId}/alerts`);
+      assert.equal(res.status, 401);
+      assert.deepEqual(res.body, { message: "Authentication token required." });
+    });
+
+    test("Request to /api/users/:id/medications without token returns 401", async () => {
+      const res = await request(app).get(`/api/users/${shantiId}/medications`);
+      assert.equal(res.status, 401);
+      assert.deepEqual(res.body, { message: "Authentication token required." });
     });
   });
 
@@ -878,6 +976,57 @@ describe("Presence SDS Backend API Test Suite", () => {
       assert.ok(result.activity);
       assert.ok(result.anomaly);
       assert.equal(Number(result.anomaly.user_id), rameshId);
+    });
+  });
+
+  describe("13. Cross-Origin Resource Sharing (CORS) Configuration", () => {
+    const vercelOrigin = "https://presence-elderly-care.vercel.app";
+
+    test("OPTIONS preflight for /api/me with Vercel origin returns 204 with CORS headers", async () => {
+      const res = await request(app)
+        .options("/api/me")
+        .set("Origin", vercelOrigin)
+        .set("Access-Control-Request-Method", "GET")
+        .set("Access-Control-Request-Headers", "authorization");
+
+      assert.equal(res.status, 204);
+      assert.equal(res.headers["access-control-allow-origin"], vercelOrigin);
+      assert.equal(res.headers["access-control-allow-credentials"], "true");
+      assert.ok(res.headers["access-control-allow-methods"]);
+      assert.ok(res.headers["access-control-allow-headers"]);
+    });
+
+    test("GET /api/health with Vercel origin returns 200 with CORS headers", async () => {
+      const res = await request(app)
+        .get("/api/health")
+        .set("Origin", vercelOrigin);
+
+      assert.equal(res.status, 200);
+      assert.equal(res.headers["access-control-allow-origin"], vercelOrigin);
+      assert.equal(res.headers["access-control-allow-credentials"], "true");
+    });
+
+    test("Unauthenticated GET /api/me with Vercel origin returns 401 with CORS headers", async () => {
+      const res = await request(app)
+        .get("/api/me")
+        .set("Origin", vercelOrigin);
+
+      assert.equal(res.status, 401);
+      assert.equal(res.headers["access-control-allow-origin"], vercelOrigin);
+      assert.equal(res.headers["access-control-allow-credentials"], "true");
+    });
+
+    test("OPTIONS preflight for Vercel preview domain pattern returns 204 with CORS headers", async () => {
+      const previewOrigin = "https://presence-preview-123.vercel.app";
+      const res = await request(app)
+        .options("/api/me")
+        .set("Origin", previewOrigin)
+        .set("Access-Control-Request-Method", "GET")
+        .set("Access-Control-Request-Headers", "authorization");
+
+      assert.equal(res.status, 204);
+      assert.equal(res.headers["access-control-allow-origin"], previewOrigin);
+      assert.equal(res.headers["access-control-allow-credentials"], "true");
     });
   });
 });

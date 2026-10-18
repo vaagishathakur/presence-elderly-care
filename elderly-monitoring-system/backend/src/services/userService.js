@@ -31,6 +31,7 @@ export async function getCaregiverAndAssignedElders(caregiverId) {
       name: caregiver.name,
       email: caregiver.email,
       phone: caregiver.phone,
+      cognitoSub: caregiver.cognito_sub,
     },
     assignedElders: eldersRes.rows.map((row) => ({
       userId: Number(row.user_id),

@@ -1,4 +1,4 @@
-﻿import "./config/env.js";
+import "./config/env.js";
 import cors from "cors";
 import express from "express";
 import { alertsRouter, createAlertsRouter } from "./routes/alerts.js";
@@ -14,13 +14,20 @@ export function createApp(verifier = null) {
   const rawOrigins =
     process.env.ALLOWED_ORIGINS ||
     process.env.FRONTEND_ORIGIN ||
-    "http://127.0.0.1:5173,http://localhost:5173,http://127.0.0.1:3000,http://localhost:3000";
-  const allowedOrigins = rawOrigins.split(",").map((o) => o.trim());
+    "https://presence-elderly-care.vercel.app,http://127.0.0.1:5173,http://localhost:5173,http://127.0.0.1:3000,http://localhost:3000";
+  const allowedOrigins = rawOrigins.split(",").map((o) => o.trim().replace(/\/$/, ""));
 
   app.use(
     cors({
       origin: (origin, callback) => {
         if (!origin || allowedOrigins.includes(origin) || allowedOrigins.includes("*")) {
+          return callback(null, true);
+        }
+        // Allow Vercel and Render domain patterns
+        if (
+          /^https:\/\/([a-z0-9-]+)\.vercel\.app$/.test(origin) ||
+          /^https:\/\/([a-z0-9-]+)\.onrender\.com$/.test(origin)
+        ) {
           return callback(null, true);
         }
         if (process.env.NODE_ENV !== "production" && /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin)) {
@@ -29,6 +36,8 @@ export function createApp(verifier = null) {
         return callback(new Error(`CORS origin '${origin}' not allowed.`));
       },
       credentials: true,
+      methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+      allowedHeaders: ["Content-Type", "Authorization", "x-voice-api-key"],
     })
   );
   app.use(express.json());

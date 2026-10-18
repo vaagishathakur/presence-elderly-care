@@ -91,6 +91,27 @@ export async function seedDatabase() {
     );
     const assignBId = assignBRes.rows[0].assignment_id;
 
+    // 4b. Dedicated Test Caregiver (Cognito user pool test account)
+    const testSub = process.env.TEST_CAREGIVER_SUB || "b9ced498-d091-70d2-8457-c9d1b487c487";
+    const testEmail = process.env.TEST_CAREGIVER_EMAIL || "vaagisha2006@gmail.com";
+    const testName = process.env.TEST_CAREGIVER_NAME || "Vaagisha";
+
+    const caregiverTestRes = await client.query(
+      `INSERT INTO caregivers (name, email, phone, cognito_sub, is_active)
+       VALUES ($1, $2, '+919876543212', $3, TRUE)
+       ON CONFLICT (email) DO UPDATE SET cognito_sub = EXCLUDED.cognito_sub, is_active = TRUE
+       RETURNING caregiver_id`,
+      [testName, testEmail, testSub]
+    );
+    const caregiverTestId = caregiverTestRes.rows[0].caregiver_id;
+
+    await client.query(
+      `INSERT INTO caregiver_assignments (user_id, caregiver_id, relationship, is_active)
+       VALUES ($1, $2, 'primary_caregiver', TRUE)
+       ON CONFLICT (user_id, caregiver_id) DO UPDATE SET is_active = TRUE`,
+      [shantiId, caregiverTestId]
+    );
+
     // 5. Family Contacts
     const contactARes = await client.query(
       `INSERT INTO family_contacts (user_id, name, relationship, phone_number)

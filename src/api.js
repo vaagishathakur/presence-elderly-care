@@ -1,13 +1,15 @@
-﻿// Presence Dashboard API Client Helper
+// Presence Dashboard API Client Helper
 // Connects the React dashboard to the Node.js/Express backend
 
-const DEFAULT_BASE_URL = "http://127.0.0.1:4000/api";
+export const DEFAULT_BASE_URL = "https://elderly-monitoring-backend.onrender.com/api";
 
 export function getApiBaseUrl() {
   const envUrl = import.meta.env.VITE_API_BASE_URL;
   if (!envUrl) return DEFAULT_BASE_URL;
   return envUrl.endsWith("/") ? envUrl.slice(0, -1) : envUrl;
 }
+
+export const API_BASE = getApiBaseUrl();
 
 let authToken = localStorage.getItem("presence_id_token") || "";
 let unauthorizedListeners = [];
@@ -154,9 +156,9 @@ export const api = {
     }),
 
   // Alexa Voice Simulator
-  simulateAlexa: (payload) =>
-    apiRequest("/alexa/simulate", {
-      method: "POST",
-      body: payload,
-    }),
+ simulateAlexa: (payload) =>
+  apiRequest("/alexa/simulate", {
+    method: "POST",
+    body: payload,
+  }),
 };

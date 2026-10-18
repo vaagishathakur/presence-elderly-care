@@ -1,4 +1,4 @@
-﻿// AWS Cognito Authentication Helper
+// AWS Cognito Authentication Helper
 // Handles Caregiver login, session persistence, new password challenges, and logout
 
 import {
@@ -10,10 +10,10 @@ import { setAuthToken } from "./api.js";
 
 export function getCognitoConfig() {
   return {
-    userPoolId: import.meta.env.VITE_COGNITO_USER_POOL_ID || "",
-    clientId: import.meta.env.VITE_COGNITO_CLIENT_ID || "",
-    region: import.meta.env.VITE_AWS_REGION || "us-east-1",
-    isDemoAuthEnabled: import.meta.env.VITE_USE_DEMO_AUTH === "true",
+    userPoolId: import.meta.env.VITE_COGNITO_USER_POOL_ID || "ap-southeast-2_xoP6IPuBT",
+    clientId: import.meta.env.VITE_COGNITO_CLIENT_ID || "4kss7kgqpoeacjt5an70ectvdi",
+    region: import.meta.env.VITE_AWS_REGION || "ap-southeast-2",
+    isDemoAuthEnabled: false,
   };
 }
 
@@ -120,24 +120,11 @@ export function completeNewPasswordChallenge(cognitoUser, newPassword, requiredA
 export function getCurrentSession() {
   const pool = getUserPool();
   if (!pool) {
-    // If demo token is stored, return demo session if enabled
-    const token = localStorage.getItem("presence_id_token");
-    if (token && (token.startsWith("demo-token-") || token === "demo-token-caregiver-a")) {
-      return Promise.resolve({
-        status: "SUCCESS",
-        idToken: token,
-        isDemo: true,
-      });
-    }
     return Promise.resolve(null);
   }
 
   const cognitoUser = pool.getCurrentUser();
   if (!cognitoUser) {
-    const token = localStorage.getItem("presence_id_token");
-    if (token && token.startsWith("demo-token-")) {
-      return Promise.resolve({ status: "SUCCESS", idToken: token, isDemo: true });
-    }
     return Promise.resolve(null);
   }
 

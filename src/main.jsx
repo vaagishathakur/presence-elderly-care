@@ -320,6 +320,7 @@ export function App() {
           setSession(newSession);
           setErrorMessage(null);
         }}
+        serverError={errorMessage}
       />
     );
   }
@@ -508,7 +509,7 @@ export function App() {
 // Caregiver Cognito Login Screen
 // -------------------------------------------------------------
 
-function LoginScreen({ onLoginSuccess }) {
+function LoginScreen({ onLoginSuccess, serverError }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -594,7 +595,7 @@ function LoginScreen({ onLoginSuccess }) {
           </p>
         </div>
 
-        {error && (
+        {(error || serverError) && (
           <div
             style={{
               background: "#fee2e2",
@@ -606,7 +607,7 @@ function LoginScreen({ onLoginSuccess }) {
               marginBottom: "18px",
             }}
           >
-            {error}
+            {error || serverError}
           </div>
         )}
 

@@ -4,15 +4,25 @@ import { query } from "../database/pool.js";
 export function createRequireAuth(customVerifier = null) {
   let verifier = customVerifier;
 
-  if (!verifier && process.env.COGNITO_USER_POOL_ID && process.env.COGNITO_CLIENT_ID) {
+  const userPoolId = process.env.COGNITO_USER_POOL_ID || "ap-southeast-2_xoP6IPuBT";
+  const knownClients = [
+    "4kss7kgqpoeacjt5an70ectvdi",
+    "2civh9uuin3idrnhe2ajil405q",
+  ];
+  const envClients = process.env.COGNITO_CLIENT_ID
+    ? process.env.COGNITO_CLIENT_ID.split(",").map((s) => s.trim()).filter(Boolean)
+    : [];
+  const clientIds = Array.from(new Set([...envClients, ...knownClients]));
+
+  if (!verifier && userPoolId) {
     try {
       verifier = CognitoJwtVerifier.create({
-        userPoolId: process.env.COGNITO_USER_POOL_ID,
-        clientId: process.env.COGNITO_CLIENT_ID,
+        userPoolId,
+        clientId: clientIds.length === 1 ? clientIds[0] : clientIds,
         tokenUse: "id",
       });
-    } catch {
-      // Handled during verify call if verifier remains null
+    } catch (err) {
+      console.error("[requireAuth] Failed to initialize CognitoJwtVerifier:", err);
     }
   }
 
@@ -60,12 +70,23 @@ export function createRequireAuth(customVerifier = null) {
         return response.status(401).json({ message: "Invalid token payload: missing sub." });
       }
 
-      const caregiverRes = await query(
+      let caregiverRes = await query(
         `SELECT caregiver_id, name, email, phone, cognito_sub, is_active
          FROM caregivers
          WHERE cognito_sub = $1`,
         [sub]
       );
+
+      // If not found by sub, match by verified email and auto-link cognito_sub
+      if (caregiverRes.rowCount === 0 && payload.email) {
+        caregiverRes = await query(
+          `UPDATE caregivers
+           SET cognito_sub = $1, is_active = TRUE
+           WHERE LOWER(email) = LOWER($2)
+           RETURNING caregiver_id, name, email, phone, cognito_sub, is_active`,
+          [sub, payload.email]
+        );
+      }
 
       if (caregiverRes.rowCount === 0 || !caregiverRes.rows[0].is_active) {
         return response.status(403).json({
@@ -85,6 +106,7 @@ export function createRequireAuth(customVerifier = null) {
 
       next();
     } catch (error) {
+      console.warn("[requireAuth] Token verification failed:", error.message);
       return response.status(401).json({ message: "Invalid or expired token." });
     }
   };

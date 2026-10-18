@@ -1,11 +1,12 @@
 const Alexa = require("ask-sdk-core");
+const https = require("https");
+const { URL } = require("url");
 
 const BACKEND_URL = process.env.PRESENCE_BACKEND_URL || "https://elderly-monitoring-backend.onrender.com";
 const VOICE_API_KEY = process.env.VOICE_API_KEY || "voice-secret-key-presence-demo";
 
 /**
- * Safely extracts amazonUserId without using ES2020 optional chaining (?.)
- * ensuring 100% compatibility with older ASK linters and Node runtimes.
+ * Safely extracts amazonUserId without using optional chaining (?.)
  */
 function getAmazonUserId(handlerInput) {
   if (
@@ -21,37 +22,57 @@ function getAmazonUserId(handlerInput) {
 }
 
 /**
- * Sends intent events directly to the live Presence backend.
+ * Sends intent events directly to the live Presence backend using Node's
+ * built-in https module (works in all Node versions, no fetch needed).
  */
-async function logToBackend(payload) {
-  try {
-    const controller = typeof AbortController !== "undefined" ? new AbortController() : null;
-    const timeoutId = controller ? setTimeout(function () { controller.abort(); }, 5000) : null;
+function logToBackend(payload) {
+  return new Promise(function (resolve) {
+    try {
+      const parsedUrl = new URL(BACKEND_URL + "/api/voice/intent");
+      const postData = JSON.stringify(payload);
 
-    const response = await fetch(BACKEND_URL + "/api/voice/intent", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-voice-api-key": VOICE_API_KEY,
-      },
-      body: JSON.stringify(payload),
-      signal: controller ? controller.signal : undefined,
-    });
+      const options = {
+        hostname: parsedUrl.hostname,
+        port: parsedUrl.port || 443,
+        path: parsedUrl.pathname,
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Content-Length": Buffer.byteLength(postData),
+          "x-voice-api-key": VOICE_API_KEY,
+        },
+        timeout: 5000,
+      };
 
-    if (timeoutId) {
-      clearTimeout(timeoutId);
+      const req = https.request(options, function (res) {
+        let responseBody = "";
+        res.on("data", function (chunk) {
+          responseBody += chunk;
+        });
+        res.on("end", function () {
+          console.log("Presence backend response code:", res.statusCode);
+          resolve();
+        });
+      });
+
+      req.on("error", function (err) {
+        console.warn("Presence backend connection note (non-blocking):", err.message);
+        resolve();
+      });
+
+      req.on("timeout", function () {
+        req.destroy();
+        console.warn("Presence backend request timed out after 5s");
+        resolve();
+      });
+
+      req.write(postData);
+      req.end();
+    } catch (err) {
+      console.warn("Presence backend unexpected error:", err.message);
+      resolve();
     }
-
-    if (!response.ok) {
-      const errText = await response.text();
-      console.warn("Presence backend returned " + response.status + ": " + errText);
-    } else {
-      const result = await response.json();
-      console.log("Presence backend recorded interaction:", result.message || "Success");
-    }
-  } catch (err) {
-    console.error("Presence backend connection note (non-blocking):", err.message);
-  }
+  });
 }
 
 const LaunchRequestHandler = {

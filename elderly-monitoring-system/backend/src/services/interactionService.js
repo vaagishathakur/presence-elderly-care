@@ -74,7 +74,20 @@ export async function createInteraction(payload = {}) {
     distressPhrase = null,
   } = payload;
 
-  const targetUserId = userId ?? elderlyUserId;
+  let targetUserId = userId ?? elderlyUserId;
+
+  if ((targetUserId === undefined || targetUserId === null) && payload.amazonUserId) {
+    const userRes = await query("SELECT user_id FROM elderly_users WHERE amazon_user_id = $1", [payload.amazonUserId]);
+    if (userRes.rowCount > 0) {
+      targetUserId = userRes.rows[0].user_id;
+    } else {
+      const defaultElder = await query("SELECT user_id FROM elderly_users ORDER BY user_id ASC LIMIT 1");
+      if (defaultElder.rowCount > 0) {
+        targetUserId = defaultElder.rows[0].user_id;
+      }
+    }
+  }
+
   const userNum = Number(targetUserId);
 
   if (targetUserId === undefined || targetUserId === null || !Number.isInteger(userNum) || userNum <= 0) {

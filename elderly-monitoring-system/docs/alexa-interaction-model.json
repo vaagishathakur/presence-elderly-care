@@ -1,0 +1,186 @@
+{
+  "interactionModel": {
+    "languageModel": {
+      "invocationName": "presence",
+      "intents": [
+        {
+          "name": "AMAZON.CancelIntent",
+          "samples": [
+            "cancel",
+            "never mind",
+            "stop that"
+          ]
+        },
+        {
+          "name": "AMAZON.HelpIntent",
+          "samples": [
+            "help",
+            "what can you do",
+            "help me with presence"
+          ]
+        },
+        {
+          "name": "AMAZON.StopIntent",
+          "samples": [
+            "stop",
+            "bye",
+            "goodbye",
+            "alvida"
+          ]
+        },
+        {
+          "name": "AMAZON.FallbackIntent",
+          "samples": []
+        },
+        {
+          "name": "AMAZON.NavigateHomeIntent",
+          "samples": []
+        },
+        {
+          "name": "CheckInIntent",
+          "slots": [
+            {
+              "name": "Utterance",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "I feel good today",
+            "I had my morning tea",
+            "I had breakfast",
+            "I am doing well",
+            "I went for a morning walk",
+            "I feel cheerful today",
+            "I am feeling a little tired",
+            "Sab theek hai",
+            "Aaj accha lag raha hai",
+            "Aaj main theek hu",
+            "Check in",
+            "Daily check in",
+            "{Utterance}"
+          ]
+        },
+        {
+          "name": "MedicationConfirmationIntent",
+          "slots": [
+            {
+              "name": "MedicationName",
+              "type": "MedicationType"
+            }
+          ],
+          "samples": [
+            "I took my medicine",
+            "I took my {MedicationName}",
+            "I took {MedicationName}",
+            "I took my tablet",
+            "I had my morning pills",
+            "Maine dawa le li",
+            "Maine {MedicationName} le li",
+            "Dawa kha li",
+            "Tablet le liya",
+            "Medication confirmed"
+          ]
+        },
+        {
+          "name": "DevotionalPlaybackIntent",
+          "slots": [
+            {
+              "name": "DevotionalItem",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "Play bhajan",
+            "Play devotional songs",
+            "Play morning prayer",
+            "Play Hanuman Chalisa",
+            "Play {DevotionalItem}",
+            "Bhajan chalao",
+            "Aarti chalao",
+            "Mantra chalao"
+          ]
+        },
+        {
+          "name": "SleepWakeCheckInIntent",
+          "slots": [],
+          "samples": [
+            "Good morning",
+            "I just woke up",
+            "I woke up",
+            "Subah ho gayi",
+            "Good night",
+            "I am going to sleep",
+            "I am going to bed",
+            "Main so raha hu",
+            "Main sone ja raha hu"
+          ]
+        },
+        {
+          "name": "DistressIntent",
+          "slots": [],
+          "samples": [
+            "Help I fell down",
+            "I fell down",
+            "I fell",
+            "Chest pain",
+            "I cannot breathe",
+            "Emergency",
+            "Bachao",
+            "Bachao mujhe theek nahi lag raha",
+            "Madad karo",
+            "Mujhe chot lag gayi",
+            "Dard ho raha hai",
+            "Gir gayi",
+            "Gir gaya",
+            "Chakkar aa rahe hai"
+          ]
+        }
+      ],
+      "types": [
+        {
+          "name": "MedicationType",
+          "values": [
+            {
+              "name": {
+                "value": "Amlodipine",
+                "synonyms": [
+                  "blood pressure medicine",
+                  "bp tablet"
+                ]
+              }
+            },
+            {
+              "name": {
+                "value": "Metformin",
+                "synonyms": [
+                  "sugar medicine",
+                  "diabetes tablet"
+                ]
+              }
+            },
+            {
+              "name": {
+                "value": "Paracetamol",
+                "synonyms": [
+                  "fever medicine",
+                  "painkiller"
+                ]
+              }
+            },
+            {
+              "name": {
+                "value": "medicine",
+                "synonyms": [
+                  "dawa",
+                  "tablet",
+                  "pill",
+                  "medicines"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

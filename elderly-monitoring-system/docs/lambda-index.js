@@ -19,6 +19,7 @@ async function logToBackend(payload) {
         "x-voice-api-key": VOICE_API_KEY,
       },
       body: JSON.stringify(payload),
+      signal: AbortSignal.timeout(5000),
     });
 
     if (!response.ok) {

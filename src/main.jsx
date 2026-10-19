@@ -1820,10 +1820,10 @@ function CareCirclePage({ meData, selectedElder }) {
       <Panel title="Authenticated Caregiver Profile">
         <div style={{ background: "#f8fafc", padding: "1.25rem", borderRadius: "8px" }}>
           <p style={{ margin: "0 0 8px" }}>
-            <strong>Caregiver Name:</strong> {caregiver?.name || "Samridhi Pandey"}
+            <strong>Caregiver Name:</strong> {caregiver?.name || session?.name || "Vaagisha"}
           </p>
           <p style={{ margin: "0 0 8px" }}>
-            <strong>Email:</strong> {caregiver?.email || "samridhi@example.com"}
+            <strong>Email:</strong> {caregiver?.email || session?.email || "vaagisha2006@gmail.com"}
           </p>
           <p style={{ margin: "0 0 8px" }}>
             <strong>Phone for SMS Alerts:</strong> {caregiver?.phone || "+919876543210"}

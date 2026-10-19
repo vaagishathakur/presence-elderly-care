@@ -504,7 +504,7 @@ export function App() {
         )}
 
         {active === "care" && (
-          <CareCirclePage meData={meData} selectedElder={selectedElder} />
+          <CareCirclePage meData={meData} selectedElder={selectedElder} session={session} />
         )}
 
         {active === "settings" && <SettingsPage elderProfile={elderProfile} />}
@@ -1806,7 +1806,7 @@ function ReportsPage({ elderStatus, interactions, medications }) {
 // Care Circle Page
 // -------------------------------------------------------------
 
-function CareCirclePage({ meData, selectedElder }) {
+function CareCirclePage({ meData, selectedElder, session }) {
   const caregiver = meData?.caregiver;
 
   return (

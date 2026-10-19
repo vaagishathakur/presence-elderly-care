@@ -77,14 +77,28 @@ export function createRequireAuth(customVerifier = null) {
         [sub]
       );
 
+      const tokenEmail = payload.email || (payload["cognito:username"] && payload["cognito:username"].includes("@") ? payload["cognito:username"] : null);
+
       // If not found by sub, match by verified email and auto-link cognito_sub
-      if (caregiverRes.rowCount === 0 && payload.email) {
+      if (caregiverRes.rowCount === 0 && tokenEmail) {
         caregiverRes = await query(
           `UPDATE caregivers
            SET cognito_sub = $1, is_active = TRUE
            WHERE LOWER(email) = LOWER($2)
            RETURNING caregiver_id, name, email, phone, cognito_sub, is_active`,
-          [sub, payload.email]
+          [sub, tokenEmail]
+        );
+      }
+
+      // Auto-enroll non-test registered caregivers
+      if (caregiverRes.rowCount === 0 && tokenEmail && !tokenEmail.endsWith("@example.com")) {
+        const displayName = payload.name || tokenEmail.split("@")[0];
+        caregiverRes = await query(
+          `INSERT INTO caregivers (name, email, cognito_sub, is_active)
+           VALUES ($1, $2, $3, TRUE)
+           ON CONFLICT (email) DO UPDATE SET cognito_sub = EXCLUDED.cognito_sub, is_active = TRUE
+           RETURNING caregiver_id, name, email, phone, cognito_sub, is_active`,
+          [displayName, tokenEmail, sub]
         );
       }
 
@@ -95,6 +109,24 @@ export function createRequireAuth(customVerifier = null) {
       }
 
       const caregiver = caregiverRes.rows[0];
+
+      // Auto-assign to default elder (Shanti Devi) if no active assignment exists
+      const assignmentCheck = await query(
+        `SELECT assignment_id FROM caregiver_assignments WHERE caregiver_id = $1 AND is_active = TRUE LIMIT 1`,
+        [caregiver.caregiver_id]
+      );
+
+      if (assignmentCheck.rowCount === 0) {
+        const defaultElder = await query(`SELECT user_id FROM elderly_users ORDER BY user_id ASC LIMIT 1`);
+        if (defaultElder.rowCount > 0) {
+          await query(
+            `INSERT INTO caregiver_assignments (user_id, caregiver_id, relationship, is_active)
+             VALUES ($1, $2, 'primary_caregiver', TRUE)
+             ON CONFLICT DO NOTHING`,
+            [defaultElder.rows[0].user_id, caregiver.caregiver_id]
+          );
+        }
+      }
       request.caregiver = {
         id: Number(caregiver.caregiver_id),
         name: caregiver.name,

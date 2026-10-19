@@ -303,11 +303,19 @@ export function App() {
 
   if (authLoading) {
     return (
-      <div style={{ display: "grid", placeItems: "center", minHeight: "100vh", background: "#f3f8f4" }}>
+      <div
+        style={{
+          display: "grid",
+          placeItems: "center",
+          minHeight: "100vh",
+          background:
+            "radial-gradient(circle at 84% 0%, rgba(212, 166, 79, 0.18), transparent 36%), linear-gradient(180deg, #fff7ed 0%, #f8f3ee 100%)",
+        }}
+      >
         <div style={{ textAlign: "center" }}>
-          <div className="brand-mark" style={{ margin: "0 auto 16px" }}>P</div>
-          <h3>Connecting to Presence...</h3>
-          <p style={{ color: "#66736b" }}>Verifying caregiver authentication</p>
+          <div className="brand-mark" style={{ margin: "0 auto 16px", background: "#d4a64f", color: "#251821", borderRadius: "14px" }}>P</div>
+          <h3 style={{ color: "#3a2635", margin: "0 0 6px" }}>Connecting to Presence...</h3>
+          <p style={{ color: "#7c7072", margin: 0 }}>Verifying caregiver authentication</p>
         </div>
       </div>
     );
@@ -566,7 +574,8 @@ function LoginScreen({ onLoginSuccess, serverError }) {
     <div
       style={{
         minHeight: "100vh",
-        background: "linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%)",
+        background:
+          "radial-gradient(circle at 84% 0%, rgba(212, 166, 79, 0.22), transparent 40%), linear-gradient(180deg, #fff7ed 0%, #f8f3ee 100%)",
         display: "grid",
         placeItems: "center",
         padding: "20px",
@@ -574,23 +583,35 @@ function LoginScreen({ onLoginSuccess, serverError }) {
     >
       <div
         style={{
-          background: "#ffffff",
+          background: "#fffdf9",
           width: "100%",
-          maxWidth: "420px",
-          borderRadius: "16px",
-          padding: "36px 30px",
-          boxShadow: "0 10px 30px rgba(0, 0, 0, 0.08)",
-          border: "1px solid #d5e0d8",
+          maxWidth: "430px",
+          borderRadius: "18px",
+          padding: "38px 32px",
+          boxShadow: "0 18px 42px rgba(58, 38, 53, 0.10)",
+          border: "1px solid #e5d8cc",
         }}
       >
         <div style={{ textAlign: "center", marginBottom: "28px" }}>
-          <div className="brand-mark" style={{ margin: "0 auto 12px" }}>
+          <div
+            className="brand-mark"
+            style={{
+              margin: "0 auto 14px",
+              background: "#d4a64f",
+              color: "#251821",
+              borderRadius: "14px",
+              width: "48px",
+              height: "48px",
+              fontSize: "22px",
+              fontWeight: "800",
+            }}
+          >
             P
           </div>
-          <h2 style={{ margin: "0 0 6px", fontSize: "1.5rem", color: "#1b2420" }}>
+          <h2 style={{ margin: "0 0 6px", fontSize: "1.6rem", color: "#3a2635", fontWeight: 700 }}>
             Presence Caregiver Portal
           </h2>
-          <p style={{ margin: 0, color: "#66736b", fontSize: "0.9rem" }}>
+          <p style={{ margin: 0, color: "#7c7072", fontSize: "0.92rem" }}>
             Sign in with Amazon Cognito to monitor your assigned family members
           </p>
         </div>
@@ -669,7 +690,7 @@ function LoginScreen({ onLoginSuccess, serverError }) {
               type="submit"
               disabled={loading}
               style={{
-                background: "#2f7d68",
+                background: "#3a2635",
                 color: "#ffffff",
                 border: "none",
                 padding: "12px",
@@ -714,7 +735,7 @@ function LoginScreen({ onLoginSuccess, serverError }) {
               type="submit"
               disabled={loading}
               style={{
-                background: "#2f7d68",
+                background: "#3a2635",
                 color: "#ffffff",
                 border: "none",
                 padding: "12px",
@@ -1660,7 +1681,7 @@ function HealthActivityPage({ elderStatus, interactions, rangeDays, setRangeDays
               onClick={() => setRangeDays(d)}
               style={{
                 border: "none",
-                background: rangeDays === d ? "#2f7d68" : "transparent",
+                background: rangeDays === d ? "#3a2635" : "transparent",
                 color: rangeDays === d ? "#ffffff" : "#64748b",
                 padding: "6px 12px",
                 borderRadius: "6px",
@@ -1897,7 +1918,7 @@ class ErrorBoundary extends React.Component {
             </pre>
             <button
               onClick={() => { window.location.reload(); }}
-              style={{ background: "#2f7d68", color: "#fff", border: "none", padding: "10px 24px", borderRadius: "8px", fontWeight: 600, cursor: "pointer" }}
+              style={{ background: "#3a2635", color: "#fff", border: "none", padding: "10px 24px", borderRadius: "8px", fontWeight: 600, cursor: "pointer" }}
             >
               Reload Page
             </button>

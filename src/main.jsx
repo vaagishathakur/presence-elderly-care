@@ -84,7 +84,6 @@ const navItems = [
   { id: "health", label: "Health & Mood", icon: HeartPulse, badge: null },
   { id: "alerts", label: "Alerts & Escalation", icon: Bell, badge: null },
   { id: "medicines", label: "Medications", icon: Pill, badge: null },
-  { id: "routine", label: "Daily Routine & Care", icon: Calendar, badge: null },
   { id: "reports", label: "Reports", icon: FileText, badge: null },
   { id: "simulator", label: "Alexa Voice Simulator", icon: Mic, badge: "Live" },
   { id: "eldery_info", label: "Elderly Info (Amma)", icon: UserRound, badge: null },
@@ -1141,18 +1140,6 @@ export function App() {
             onToggleActive={handleToggleMedScheduleActive}
             adherence={adherence}
             rangeDays={rangeDays}
-          />
-        )}
-
-        {/* 6. Daily Routine & Activities (Explicit User Request & SRS 3.1.1 / 3.1.2.4) */}
-        {active === "routine" && (
-          <RoutinePage
-            routines={routines}
-            onToggleRoutine={handleToggleRoutine}
-            onOpenAddRoutineModal={() => setIsAddRoutineModalOpen(true)}
-            completedCount={routineCompletedCount}
-            totalCount={routines.length}
-            interactions={interactions}
           />
         )}
 
@@ -2397,170 +2384,6 @@ function MedicinesPage({ schedules, todayLogs, onConfirm, onOpenAddModal, onTogg
           )}
         </div>
       </Panel>
-    </section>
-  );
-}
-
-// -------------------------------------------------------------
-// 4. DAILY ROUTINE & ACTIVITIES (SRS 3.1.1 / 3.1.2.4 / 3.1.2.5)
-// -------------------------------------------------------------
-
-function RoutinePage({ routines, onToggleRoutine, onOpenAddRoutineModal, completedCount, totalCount }) {
-  const categories = [
-    { id: "morning", label: "Morning Routine (07:00 AM - 11:30 AM)", icon: Sun },
-    { id: "afternoon", label: "Afternoon Routine (11:30 AM - 04:00 PM)", icon: Coffee },
-    { id: "evening", label: "Evening Routine (04:00 PM - 08:00 PM)", icon: Sparkles },
-    { id: "night", label: "Night Routine & Bedtime (08:00 PM - 10:30 PM)", icon: Moon },
-  ];
-
-  return (
-    <section className="single-column">
-      <div className="section-actions">
-        <div>
-          <h3>Daily Routine Schedules & Care Checklist</h3>
-          <p>
-            Spoken wake check-ins, devotional playback, meals, hydration, and cognitive games per SRS 3.1.1 & 3.1.2.
-          </p>
-        </div>
-        <button className="primary-btn" onClick={onOpenAddRoutineModal}>
-          <Plus size={16} /> Add Custom Routine Item
-        </button>
-      </div>
-
-      {/* Routine Progress Hero */}
-      <div className="panel" style={{ padding: "18px 24px" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px" }}>
-          <div>
-            <strong style={{ fontSize: "1.1rem", color: "var(--brand-dark)" }}>
-              Today's Care Routine Progress
-            </strong>
-            <p style={{ margin: "2px 0 0", color: "var(--muted)", fontSize: "0.85rem" }}>
-              {completedCount} of {totalCount} scheduled activities completed today
-            </p>
-          </div>
-          <span className="pill-badge good" style={{ fontSize: "0.95rem", padding: "6px 14px" }}>
-            {Math.round((completedCount / (totalCount || 1)) * 100)}% Complete
-          </span>
-        </div>
-        <div style={{ height: "10px", background: "var(--line)", borderRadius: "5px", overflow: "hidden" }}>
-          <div
-            style={{
-              width: `${(completedCount / (totalCount || 1)) * 100}%`,
-              height: "100%",
-              background: "var(--good)",
-              transition: "width 0.3s ease",
-            }}
-          />
-        </div>
-      </div>
-
-      {/* 7-Day Routine Completion Rate Trend Chart */}
-      <div className="panel" style={{ padding: "18px 24px" }}>
-        <strong style={{ fontSize: "1rem", color: "var(--brand-dark)", display: "block", marginBottom: "12px" }}>
-          7-Day Routine Completion Trends
-        </strong>
-        <div style={{ height: "140px", width: "100%" }}>
-          <ResponsiveContainer width="100%" height={140}>
-            <BarChart
-              data={[
-                { day: "Thu", rate: 85 },
-                { day: "Fri", rate: 90 },
-                { day: "Sat", rate: 80 },
-                { day: "Sun", rate: 95 },
-                { day: "Mon", rate: 100 },
-                { day: "Tue", rate: 88 },
-                { day: "Today", rate: Math.round((completedCount / (totalCount || 1)) * 100) },
-              ]}
-              margin={{ top: 5, right: 10, left: -20, bottom: 0 }}
-            >
-              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-              <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{ fill: "#64748b", fontSize: 12 }} />
-              <YAxis domain={[0, 100]} tick={{ fill: "#64748b", fontSize: 12 }} />
-              <Tooltip formatter={(val) => [`${val}% completed`, "Completion Rate"]} />
-              <Bar dataKey="rate" fill="var(--good)" radius={[4, 4, 0, 0]} name="Rate" />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
-
-      {/* Grouped Routine Categories */}
-      {categories.map((cat) => {
-        const items = routines.filter((r) => r.category === cat.id);
-        const CatIcon = cat.icon;
-
-        return (
-          <Panel
-            key={cat.id}
-            title={
-              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                <CatIcon size={18} style={{ color: "var(--brand)" }} />
-                <span>{cat.label}</span>
-              </div>
-            }
-          >
-            <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-              {items.map((r) => (
-                <div
-                  key={r.routineId}
-                  style={{
-                    padding: "12px 16px",
-                    background: r.status === "completed" ? "var(--good-soft)" : "var(--panel-soft)",
-                    borderRadius: "8px",
-                    border: "1px solid var(--line)",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                  }}
-                >
-                  <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-                    <button
-                      onClick={() => onToggleRoutine(r.routineId)}
-                      style={{
-                        width: "24px",
-                        height: "24px",
-                        borderRadius: "6px",
-                        border: "1px solid var(--line-strong)",
-                        background: r.status === "completed" ? "var(--good)" : "#ffffff",
-                        color: "#ffffff",
-                        display: "grid",
-                        placeItems: "center",
-                        cursor: "pointer",
-                        padding: 0,
-                      }}
-                    >
-                      {r.status === "completed" && <Check size={16} />}
-                    </button>
-                    <div>
-                      <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                        <strong style={{ fontSize: "0.95rem", color: "var(--brand-dark)" }}>{r.title}</strong>
-                        <span className="pill-badge" style={{ fontSize: "0.75rem", background: "var(--mint)", color: "var(--brand)" }}>
-                          {r.srsRef}
-                        </span>
-                      </div>
-                      <div style={{ fontSize: "0.82rem", color: "var(--muted)", marginTop: "2px" }}>
-                        Scheduled: <strong>{r.scheduledTime}</strong> · Type: {r.type}
-                        {r.note && ` · ${r.note}`}
-                      </div>
-                    </div>
-                  </div>
-
-                  <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                    {r.completedAt && (
-                      <span style={{ fontSize: "0.8rem", color: "var(--good)", fontWeight: 600 }}>
-                        Done @ {r.completedAt}
-                      </span>
-                    )}
-                    <span className={`pill-badge ${r.status === "completed" ? "good" : "warning"}`}>
-                      {r.status}
-                    </span>
-                  </div>
-                </div>
-              ))}
-              {items.length === 0 && <p style={{ color: "var(--muted)" }}>No routine items in this block.</p>}
-            </div>
-          </Panel>
-        );
-      })}
     </section>
   );
 }

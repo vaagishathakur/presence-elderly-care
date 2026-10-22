@@ -547,6 +547,19 @@ export function App() {
   // 1. Session initialization (Restore Cognito session or check token)
   useEffect(() => {
     let isMounted = true;
+
+    // If user explicitly navigates to /login or #login, trigger sign out to show login screen
+    const isLoginRoute =
+      window.location.pathname.endsWith("/login") ||
+      window.location.hash === "#login";
+
+    if (isLoginRoute) {
+      signOutCaregiver();
+      setSession(null);
+      setAuthLoading(false);
+      return;
+    }
+
     getCurrentSession()
       .then((sess) => {
         if (isMounted) {

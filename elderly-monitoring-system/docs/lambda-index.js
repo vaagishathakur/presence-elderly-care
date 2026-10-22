@@ -22,6 +22,7 @@ function logToBackend(payload) {
     try {
       const parsedUrl = new URL(BACKEND_URL + "/api/voice/intent");
       const postData = JSON.stringify({
+        userId: Number(process.env.USER_ID || payload.userId || 1),
         residentName: RESIDENT_NAME,
         resident: RESIDENT_NAME,
         timestamp: new Date().toISOString(),

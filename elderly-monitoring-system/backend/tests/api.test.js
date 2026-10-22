@@ -1029,4 +1029,166 @@ describe("Presence SDS Backend API Test Suite", () => {
       assert.equal(res.headers["access-control-allow-credentials"], "true");
     });
   });
+
+  describe("14. End-to-End Integration Tests (Problems A, B, C, D)", () => {
+    test("Problem A: Alexa Lambda payload saves mood without creating false critical emergency alert", async () => {
+      const res = await request(app)
+        .post("/api/voice/intent")
+        .set("x-voice-api-key", process.env.VOICE_API_KEY)
+        .send({
+          residentName: "Shanti Devi",
+          payload: {
+            residentName: "Shanti Devi",
+            transcript: "I am feeling lonely today.",
+            intent: "MoodIntent",
+            mood: "lonely",
+            sentimentLabel: "negative",
+            moodScore: -0.4,
+            distressDetected: false,
+            timestamp: new Date().toISOString(),
+          },
+        });
+
+      assert.equal(res.status, 201);
+      assert.ok(res.body.interaction);
+      assert.equal(Number(res.body.interaction.user_id), shantiId);
+      assert.ok(res.body.moodAnalysis);
+      assert.equal(res.body.moodAnalysis.sentiment_label, "negative");
+
+      // Verify no critical distress alert was created for loneliness
+      const alertCheck = await query(
+        "SELECT * FROM alerts WHERE user_id = $1 AND triggering_phrase ILIKE '%lonely%'",
+        [shantiId]
+      );
+      assert.equal(alertCheck.rowCount, 0);
+    });
+
+    test("Problem A: Alexa utterances for happy, sad, worried persist correctly", async () => {
+      const moods = [
+        { phrase: "I feel happy.", sentiment: "positive", score: 0.7, mood: "happy" },
+        { phrase: "I am sad.", sentiment: "negative", score: -0.5, mood: "sad" },
+        { phrase: "I feel worried.", sentiment: "negative", score: -0.3, mood: "worried" },
+      ];
+
+      for (const m of moods) {
+        const res = await request(app)
+          .post("/api/voice/intent")
+          .set("x-voice-api-key", process.env.VOICE_API_KEY)
+          .send({
+            residentName: "Shanti Devi",
+            transcript: m.phrase,
+            intent: "MoodIntent",
+            mood: m.mood,
+            sentimentLabel: m.sentiment,
+            moodScore: m.score,
+            distressDetected: false,
+          });
+
+        assert.equal(res.status, 201);
+        assert.equal(Number(res.body.interaction.user_id), shantiId);
+        assert.equal(res.body.moodAnalysis.sentiment_label, m.sentiment);
+      }
+    });
+
+    test("Problem B: Physical unwellness creates high priority alert", async () => {
+      // Resolve existing open alerts for Shanti Devi to start clean
+      await query("UPDATE alerts SET status = 'resolved' WHERE user_id = $1", [shantiId]);
+
+      const res = await request(app)
+        .post("/api/voice/intent")
+        .set("x-voice-api-key", process.env.VOICE_API_KEY)
+        .send({
+          residentName: "Shanti Devi",
+          transcript: "I am not feeling well.",
+          intent: "FeelingUnwellIntent",
+          distressDetected: true,
+          distressLevel: "high",
+          moodScore: -0.5,
+        });
+
+      assert.equal(res.status, 201);
+
+      const alertRes = await query(
+        "SELECT * FROM alerts WHERE user_id = $1 AND triggering_phrase ILIKE '%not feeling well%' ORDER BY created_at DESC LIMIT 1",
+        [shantiId]
+      );
+      assert.equal(alertRes.rowCount, 1);
+      assert.equal(alertRes.rows[0].severity, "high");
+      assert.equal(alertRes.rows[0].status, "open");
+    });
+
+    test("Problem B: Urgent help request creates critical priority alert and appears on caregiver alerts API", async () => {
+      // Resolve previous alert
+      await query("UPDATE alerts SET status = 'resolved' WHERE user_id = $1", [shantiId]);
+
+      const res = await request(app)
+        .post("/api/voice/intent")
+        .set("x-voice-api-key", process.env.VOICE_API_KEY)
+        .send({
+          residentName: "Shanti Devi",
+          transcript: "I need help.",
+          intent: "RequestHelpIntent",
+          distressDetected: true,
+          distressLevel: "urgent",
+          moodScore: -0.9,
+        });
+
+      assert.equal(res.status, 201);
+
+      // Verify alert on Caregiver API
+      const alertsApiRes = await request(app)
+        .get(`/api/users/${shantiId}/alerts`)
+        .set("Authorization", `Bearer ${tokenTestUser}`);
+
+      assert.equal(alertsApiRes.status, 200);
+      assert.ok(Array.isArray(alertsApiRes.body.alerts));
+      const urgentAlert = alertsApiRes.body.alerts.find((a) => a.severity === "critical");
+      assert.ok(urgentAlert);
+      assert.equal(urgentAlert.status, "open");
+      assert.ok(urgentAlert.triggeringPhrase.includes("I need help"));
+
+      // Deduplication: immediate second identical call does not create duplicate
+      const countBefore = alertsApiRes.body.alerts.length;
+      await request(app)
+        .post("/api/voice/intent")
+        .set("x-voice-api-key", process.env.VOICE_API_KEY)
+        .send({
+          residentName: "Shanti Devi",
+          transcript: "I need help.",
+          intent: "RequestHelpIntent",
+          distressDetected: true,
+          distressLevel: "urgent",
+          moodScore: -0.9,
+        });
+
+      const alertsAfter = await request(app)
+        .get(`/api/users/${shantiId}/alerts`)
+        .set("Authorization", `Bearer ${tokenTestUser}`);
+      assert.equal(alertsAfter.body.alerts.length, countBefore);
+    });
+
+    test("Problem C: Status endpoint returns enriched todayMood with specificMood and label", async () => {
+      const res = await request(app)
+        .get(`/api/users/${shantiId}/status`)
+        .set("Authorization", `Bearer ${tokenTestUser}`);
+
+      assert.equal(res.status, 200);
+      assert.ok(res.body.todayMood);
+      assert.ok(typeof res.body.todayMood.score === "number");
+      assert.ok(typeof res.body.todayMood.label === "string");
+      assert.ok(typeof res.body.todayMood.specificMood === "string");
+      assert.ok(res.body.todayMood.recordedAt);
+    });
+
+    test("Problem D: Authoritative email in /api/me matches authenticated token and rejects inactive/placeholder email", async () => {
+      const res = await request(app)
+        .get("/api/me")
+        .set("Authorization", `Bearer ${tokenTestUser}`);
+
+      assert.equal(res.status, 200);
+      assert.equal(res.body.caregiver.email, "vaagisha2006@gmail.com");
+      assert.notEqual(res.body.caregiver.email, "inactive@example.com");
+      assert.notEqual(res.body.caregiver.email, "inactive@gmial.com");
+    });
+  });
 });

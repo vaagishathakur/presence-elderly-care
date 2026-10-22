@@ -1,6 +1,8 @@
 import "./config/env.js";
 import cors from "cors";
 import express from "express";
+import fs from "node:fs";
+import path from "node:path";
 import { alertsRouter, createAlertsRouter } from "./routes/alerts.js";
 import { alexaRouter } from "./routes/alexa.js";
 import { healthRouter } from "./routes/health.js";
@@ -53,6 +55,18 @@ export function createApp(verifier = null) {
   app.use("/api/alerts", alertsRouter);
   app.use("/api/voice", voiceRouter);
   app.use("/api/alexa", alexaRouter);
+
+  // Serve static assets from dist/ if it exists (for unified Render deployment)
+  const distPath = path.resolve(process.cwd(), "dist");
+  if (fs.existsSync(distPath)) {
+    app.use(express.static(distPath));
+    app.use((req, res, next) => {
+      if (req.method === "GET" && !req.path.startsWith("/api/")) {
+        return res.sendFile(path.join(distPath, "index.html"));
+      }
+      next();
+    });
+  }
 
   // 404 handler for unknown routes
   app.use((_request, response) => {

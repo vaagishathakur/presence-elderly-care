@@ -11,7 +11,7 @@ import { setAuthToken } from "./api.js";
 export function getCognitoConfig() {
   return {
     userPoolId: import.meta.env.VITE_COGNITO_USER_POOL_ID || "ap-southeast-2_xoP6IPuBT",
-    clientId: import.meta.env.VITE_COGNITO_CLIENT_ID || "4kss7kgqpoeacjt5an70ectvdi",
+    clientId: import.meta.env.VITE_COGNITO_CLIENT_ID || "2civh9uuin3idrnhe2ajil405q",
     region: import.meta.env.VITE_AWS_REGION || "ap-southeast-2",
     isDemoAuthEnabled: false,
   };
@@ -139,7 +139,7 @@ export function getCurrentSession() {
         resolve({
           status: "SUCCESS",
           idToken,
-          email: session.getIdToken().payload.email,
+          email: session.getIdToken().payload.email || cognitoUser.getUsername(),
           name: session.getIdToken().payload.name || "Caregiver",
           claims: session.getIdToken().payload,
         });

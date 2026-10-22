@@ -70,62 +70,69 @@ export function createRequireAuth(customVerifier = null) {
         return response.status(401).json({ message: "Invalid token payload: missing sub." });
       }
 
-      // 1. Try finding by cognito_sub
-      let caregiverRes = await query(
-        `SELECT caregiver_id, name, email, phone, cognito_sub, is_active
-         FROM caregivers
-         WHERE cognito_sub = $1`,
-        [sub]
-      );
-
       const tokenEmail =
         payload.email ||
         (payload["cognito:username"] && payload["cognito:username"].includes("@") ? payload["cognito:username"] : null) ||
         (payload.username && payload.username.includes("@") ? payload.username : null);
 
-      // 2. If not found by sub, match by verified email (ILIKE for case-insensitive match)
-      if (caregiverRes.rowCount === 0 && tokenEmail) {
-        caregiverRes = await query(
-          `UPDATE caregivers
-           SET cognito_sub = $1, is_active = TRUE
-           WHERE email ILIKE $2
-           RETURNING caregiver_id, name, email, phone, cognito_sub, is_active`,
-          [sub, tokenEmail]
-        );
-      }
+      let caregiver = null;
 
-      // 3. Fallback for Vaagisha's registered account if token email is missing or differs
-      const isKnownTestAccount = tokenEmail && tokenEmail.endsWith("@example.com");
-      if (caregiverRes.rowCount === 0 && !isKnownTestAccount) {
-        caregiverRes = await query(
-          `UPDATE caregivers
-           SET cognito_sub = $1, is_active = TRUE
-           WHERE email ILIKE 'vaagisha2006@gmail.com' OR caregiver_id = 3
-           RETURNING caregiver_id, name, email, phone, cognito_sub, is_active`,
-          [sub]
+      // 1. Authoritative resolution: If token provides a verified email, look up by email first
+      if (tokenEmail) {
+        const emailCheck = await query(
+          `SELECT caregiver_id, name, email, phone, cognito_sub, is_active
+           FROM caregivers
+           WHERE email ILIKE $1`,
+          [tokenEmail]
         );
 
-        // Auto-insert if still no row
-        if (caregiverRes.rowCount === 0) {
-          const displayName = payload.name || (tokenEmail ? tokenEmail.split("@")[0] : "Vaagisha");
-          const finalEmail = tokenEmail || "vaagisha2006@gmail.com";
-          caregiverRes = await query(
+        if (emailCheck.rowCount > 0) {
+          caregiver = emailCheck.rows[0];
+          if (!caregiver.is_active) {
+            return response.status(403).json({
+              message: "Forbidden: Caregiver account not found or inactive.",
+            });
+          }
+          // Link current sub if not linked, and clear sub from any other record
+          if (caregiver.cognito_sub !== sub) {
+            await query(`UPDATE caregivers SET cognito_sub = NULL WHERE cognito_sub = $1 AND caregiver_id <> $2`, [sub, caregiver.caregiver_id]);
+            await query(`UPDATE caregivers SET cognito_sub = $1 WHERE caregiver_id = $2`, [sub, caregiver.caregiver_id]);
+            caregiver.cognito_sub = sub;
+          }
+        } else if (!tokenEmail.endsWith("@example.com")) {
+          // Auto-enroll non-test registered caregivers with verified email
+          const displayName = payload.name || tokenEmail.split("@")[0] || "Caregiver";
+          const insertRes = await query(
             `INSERT INTO caregivers (name, email, cognito_sub, is_active)
              VALUES ($1, $2, $3, TRUE)
-             ON CONFLICT (email) DO UPDATE SET cognito_sub = EXCLUDED.cognito_sub, is_active = TRUE
+             ON CONFLICT (email) DO UPDATE
+               SET cognito_sub = EXCLUDED.cognito_sub, is_active = TRUE
              RETURNING caregiver_id, name, email, phone, cognito_sub, is_active`,
-            [displayName, finalEmail, sub]
+            [displayName, tokenEmail, sub]
           );
+          caregiver = insertRes.rows[0];
         }
       }
 
-      if (caregiverRes.rowCount === 0 || !caregiverRes.rows[0].is_active) {
+      // 2. If not resolved by email, try resolving by cognito_sub
+      if (!caregiver) {
+        const subCheck = await query(
+          `SELECT caregiver_id, name, email, phone, cognito_sub, is_active
+           FROM caregivers
+           WHERE cognito_sub = $1`,
+          [sub]
+        );
+
+        if (subCheck.rowCount > 0) {
+          caregiver = subCheck.rows[0];
+        }
+      }
+
+      if (!caregiver || !caregiver.is_active) {
         return response.status(403).json({
           message: "Forbidden: Caregiver account not found or inactive.",
         });
       }
-
-      const caregiver = caregiverRes.rows[0];
 
       // Auto-assign to default elder (Shanti Devi) if no active assignment exists
       const assignmentCheck = await query(
@@ -144,10 +151,11 @@ export function createRequireAuth(customVerifier = null) {
           );
         }
       }
+
       request.caregiver = {
         id: Number(caregiver.caregiver_id),
-        name: caregiver.name,
-        email: caregiver.email,
+        name: caregiver.name || payload.name || "Caregiver",
+        email: caregiver.email || tokenEmail,
         phone: caregiver.phone,
         cognitoSub: caregiver.cognito_sub,
         claims: payload,

@@ -56,7 +56,7 @@ export async function getElderlyUserStatus(userId) {
 
   // 4. Today's latest mood in elder's timezone (or latest overall)
   const moodRes = await query(
-    `SELECT m.sentiment_label, m.mood_score
+    `SELECT m.sentiment_label, m.mood_score, m.distress_phrase, i.transcript, i.interaction_at
      FROM mood_analyses m
      JOIN interactions i ON i.interaction_id = m.interaction_id
      WHERE i.user_id = $1
@@ -66,10 +66,23 @@ export async function getElderlyUserStatus(userId) {
   );
 
   const moodRow = moodRes.rows[0];
+  let specificMood = null;
+  if (moodRow) {
+    const text = (moodRow.distress_phrase || moodRow.transcript || "").toLowerCase();
+    if (text.includes("happy")) specificMood = "happy";
+    else if (text.includes("sad")) specificMood = "sad";
+    else if (text.includes("lonely")) specificMood = "lonely";
+    else if (text.includes("worried") || text.includes("worry")) specificMood = "worried";
+    else if (text.includes("unwell") || text.includes("not well")) specificMood = "not well";
+    else specificMood = moodRow.distress_phrase || moodRow.sentiment_label;
+  }
+
   const todayMood = moodRow
     ? {
         label: moodRow.sentiment_label,
         score: moodRow.mood_score !== null ? Number(moodRow.mood_score) : null,
+        specificMood: specificMood || moodRow.sentiment_label,
+        recordedAt: moodRow.interaction_at,
       }
     : null;
 

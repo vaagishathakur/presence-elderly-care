@@ -55,16 +55,27 @@ export async function listUserInteractions(userId, { limit = 20, offset = 0 } = 
 }
 
 export async function createInteraction(payload = {}) {
+  // Support both flat payload and nested { residentName, payload: { ... } } from Alexa Lambda
+  const data = (payload && typeof payload.payload === "object" && payload.payload !== null)
+    ? { ...payload.payload, residentName: payload.residentName || payload.payload.residentName, resident: payload.resident || payload.payload.resident, ...payload, payload: undefined }
+    : { ...payload };
+
   const {
     userId,
     elderlyUserId,
+    residentId,
+    amazonUserId,
+    residentName,
+    resident,
     sessionId = null,
     interactionIntent = "general_check_in",
     intent,
     transcript,
     transcriptSummary,
+    utterance,
     response = null,
     summary = null,
+    mood = null,
     moodScore = null,
     confidenceScore = null,
     moodConfidence = null,
@@ -72,15 +83,32 @@ export async function createInteraction(payload = {}) {
     moodLabel = null,
     distressDetected = false,
     distressPhrase = null,
-  } = payload;
+    distressLevel = null,
+  } = data;
 
-  let targetUserId = userId ?? elderlyUserId;
+  let targetUserId = userId ?? elderlyUserId ?? residentId;
 
-  if ((targetUserId === undefined || targetUserId === null) && payload.amazonUserId) {
-    const userRes = await query("SELECT user_id FROM elderly_users WHERE amazon_user_id = $1", [payload.amazonUserId]);
-    if (userRes.rowCount > 0) {
-      targetUserId = userRes.rows[0].user_id;
-    } else {
+  // Resolve target resident if not explicitly provided as an ID
+  if (targetUserId === undefined || targetUserId === null) {
+    if (amazonUserId) {
+      const userRes = await query("SELECT user_id FROM elderly_users WHERE amazon_user_id = $1", [amazonUserId]);
+      if (userRes.rowCount > 0) {
+        targetUserId = userRes.rows[0].user_id;
+      }
+    }
+
+    if (!targetUserId && (residentName || resident)) {
+      const nameToMatch = (residentName || resident).trim();
+      const nameRes = await query(
+        "SELECT user_id FROM elderly_users WHERE name ILIKE $1 ORDER BY user_id ASC LIMIT 1",
+        [`%${nameToMatch}%`]
+      );
+      if (nameRes.rowCount > 0) {
+        targetUserId = nameRes.rows[0].user_id;
+      }
+    }
+
+    if (!targetUserId) {
       const defaultElder = await query("SELECT user_id FROM elderly_users ORDER BY user_id ASC LIMIT 1");
       if (defaultElder.rowCount > 0) {
         targetUserId = defaultElder.rows[0].user_id;
@@ -96,19 +124,49 @@ export async function createInteraction(payload = {}) {
     throw error;
   }
 
-  const finalTranscript = transcript || transcriptSummary;
-  if (!finalTranscript || typeof finalTranscript !== "string" || finalTranscript.trim().length === 0) {
+  const rawTranscript = transcript ?? transcriptSummary ?? utterance ?? summary;
+  if (!rawTranscript || typeof rawTranscript !== "string" || rawTranscript.trim().length === 0) {
     const error = new Error("transcript is required.");
     error.statusCode = 400;
     throw error;
   }
+  const finalTranscript = rawTranscript.trim();
 
-  const finalIntent = intent || interactionIntent;
+  const finalIntent = intent || interactionIntent || "general_check_in";
+
+  // Normalize mood inputs
+  const rawMood = (mood || moodLabel || "").toString().trim().toLowerCase();
+  let finalSentiment = sentimentLabel;
+  let finalMoodScore = moodScore;
+  let finalDistressPhrase = distressPhrase;
+
+  if (rawMood) {
+    if (rawMood === "happy") {
+      finalSentiment = finalSentiment || "positive";
+      finalMoodScore = finalMoodScore !== null ? finalMoodScore : 0.8;
+      finalDistressPhrase = finalDistressPhrase || "happy";
+    } else if (rawMood === "sad") {
+      finalSentiment = finalSentiment || "negative";
+      finalMoodScore = finalMoodScore !== null ? finalMoodScore : -0.5;
+      finalDistressPhrase = finalDistressPhrase || "sad";
+    } else if (rawMood === "lonely") {
+      finalSentiment = finalSentiment || "negative";
+      finalMoodScore = finalMoodScore !== null ? finalMoodScore : -0.5;
+      finalDistressPhrase = finalDistressPhrase || "lonely";
+    } else if (rawMood === "worried") {
+      finalSentiment = finalSentiment || "negative";
+      finalMoodScore = finalMoodScore !== null ? finalMoodScore : -0.5;
+      finalDistressPhrase = finalDistressPhrase || "worried";
+    } else if (rawMood === "neutral") {
+      finalSentiment = finalSentiment || "neutral";
+      finalMoodScore = finalMoodScore !== null ? finalMoodScore : 0;
+    }
+  }
 
   let parsedMoodScore = null;
-  if (moodScore !== null && moodScore !== undefined) {
-    const msNum = Number(moodScore);
-    if (typeof moodScore === "boolean" || Number.isNaN(msNum) || msNum < -1.0 || msNum > 1.0) {
+  if (finalMoodScore !== null && finalMoodScore !== undefined) {
+    const msNum = Number(finalMoodScore);
+    if (typeof finalMoodScore === "boolean" || Number.isNaN(msNum) || msNum < -1.0 || msNum > 1.0) {
       const error = new Error("moodScore must be a number between -1 and 1.");
       error.statusCode = 400;
       throw error;
@@ -128,7 +186,6 @@ export async function createInteraction(payload = {}) {
     parsedConfidence = confNum;
   }
 
-  let finalSentiment = sentimentLabel ?? (moodLabel === "happy" ? "positive" : moodLabel === "sad" ? "negative" : moodLabel === "neutral" ? "neutral" : moodLabel ? "unknown" : null);
   if (finalSentiment && !ALLOWED_SENTIMENT_LABELS.includes(finalSentiment)) {
     const error = new Error(`Invalid sentimentLabel '${finalSentiment}'. Allowed values: ${ALLOWED_SENTIMENT_LABELS.join(", ")}`);
     error.statusCode = 400;
@@ -161,7 +218,7 @@ export async function createInteraction(payload = {}) {
           parsedConfidence,
           finalSentiment || "unknown",
           Boolean(distressDetected),
-          distressPhrase,
+          finalDistressPhrase,
         ]
       );
       moodAnalysisRow = moodResult.rows[0];
@@ -169,7 +226,7 @@ export async function createInteraction(payload = {}) {
 
     await client.query("COMMIT");
 
-    if (moodAnalysisRow) {
+    if (moodAnalysisRow || distressDetected) {
       try {
         await processInteractionForAlerts({
           userId: userNum,
@@ -178,7 +235,8 @@ export async function createInteraction(payload = {}) {
           moodScore: parsedMoodScore,
           confidenceScore: parsedConfidence,
           distressDetected: Boolean(distressDetected),
-          distressPhrase,
+          distressPhrase: finalDistressPhrase || (distressDetected ? finalTranscript.trim() : null),
+          distressLevel,
         });
       } catch (alertErr) {
         console.error("Alert processing error on createInteraction:", alertErr.message);

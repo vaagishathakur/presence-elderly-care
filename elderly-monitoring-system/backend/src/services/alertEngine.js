@@ -10,6 +10,7 @@ export async function processInteractionForAlerts({
   confidenceScore = null,
   distressDetected = false,
   distressPhrase = null,
+  distressLevel = null,
 }) {
   const userNum = Number(userId);
 
@@ -44,6 +45,12 @@ export async function processInteractionForAlerts({
   const trigger = distressPhrase || transcript || "Severe negative mood signal";
   const confidence = confidenceScore !== null ? Number(confidenceScore) : 0.900;
 
+  // Determine severity: critical for urgent help requests / emergencies, high for physical unwellness / other distress
+  const isUrgent =
+    distressLevel === "urgent" ||
+    /(?:help|bachao|madad|fall|gir gay|emergency|unsafe|not safe|danger)/i.test(trigger);
+  const severity = isUrgent ? "critical" : "high";
+
   const client = await getClient();
 
   try {
@@ -56,8 +63,10 @@ export async function processInteractionForAlerts({
     );
 
     // 2. De-duplication check:
-    // If an alert is still open/acknowledged (regardless of age), OR if any distress alert was created
-    // within the configured deduplication window (e.g. 15 minutes), suppress creating a duplicate.
+    // If an alert is still open/acknowledged (ongoing incident), OR if an active/unresolved distress
+    // alert was created within the deduplication window (15 minutes), or if the identical interaction
+    // retry arrives, suppress creating a duplicate without suppressing genuinely new distress events
+    // once previous alerts are resolved.
     const duplicateCheck = await client.query(
       `SELECT alert_id
        FROM alerts
@@ -65,11 +74,22 @@ export async function processInteractionForAlerts({
          AND alert_type = 'distress'
          AND (
            status IN ('open', 'acknowledged')
-           OR created_at >= NOW() - make_interval(mins => $2::integer)
+           OR (
+             status NOT IN ('resolved', 'dismissed')
+             AND created_at >= NOW() - make_interval(mins => $2::integer)
+           )
+           OR (
+             $3::bigint IS NOT NULL
+             AND source_interaction_id = $3::bigint
+           )
+           OR (
+             triggering_phrase = $4
+             AND created_at >= NOW() - INTERVAL '30 seconds'
+           )
          )
        ORDER BY created_at DESC
        LIMIT 1`,
-      [userNum, DEDUPLICATION_WINDOW_MINUTES]
+      [userNum, DEDUPLICATION_WINDOW_MINUTES, interactionId || null, trigger]
     );
 
     if (duplicateCheck.rowCount > 0) {
@@ -83,9 +103,9 @@ export async function processInteractionForAlerts({
          user_id, source_interaction_id, alert_type, severity,
          triggering_phrase, confidence_score, status, escalation_level
        )
-       VALUES ($1, $2, 'distress', 'critical', $3, $4, 'open', 0)
+       VALUES ($1, $2, 'distress', $3, $4, $5, 'open', 0)
        RETURNING alert_id, user_id, source_interaction_id, alert_type, severity, triggering_phrase, confidence_score, status, escalation_level, created_at`,
-      [userNum, interactionId || null, trigger, confidence]
+      [userNum, interactionId || null, severity, trigger, confidence]
     );
 
     const alert = alertRes.rows[0];

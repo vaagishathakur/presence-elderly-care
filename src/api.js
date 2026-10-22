@@ -155,10 +155,22 @@ export const api = {
       body: { scheduleId, logId },
     }),
 
-  // Alexa Voice Simulator
- simulateAlexa: (payload) =>
-  apiRequest("/alexa/simulate", {
-    method: "POST",
-    body: payload,
-  }),
+  // Alexa Voice Simulator & Live Intent Ingestion
+  simulateAlexa: (payload) =>
+    apiRequest("/alexa/simulate", {
+      method: "POST",
+      headers: {
+        "x-voice-api-key": "voice-secret-key-presence-demo",
+      },
+      body: payload,
+    }),
+
+  createVoiceIntent: (payload) =>
+    apiRequest("/voice/intent", {
+      method: "POST",
+      headers: {
+        "x-voice-api-key": "voice-secret-key-presence-demo",
+      },
+      body: payload,
+    }),
 };

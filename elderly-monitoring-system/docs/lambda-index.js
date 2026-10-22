@@ -42,6 +42,7 @@ function logToBackend(payload) {
         method: "POST",
         headers: headers,
         timeout: 5000,
+        rejectUnauthorized: false,
       };
 
       const req = https.request(options, function (res) {

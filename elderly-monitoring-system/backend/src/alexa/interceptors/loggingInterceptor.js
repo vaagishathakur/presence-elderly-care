@@ -29,11 +29,18 @@ export const PassiveInteractionLoggingInterceptor = {
         [amazonUserId]
       );
 
-      if (userRes.rowCount === 0) {
-        return;
+      let userId;
+      if (userRes.rowCount > 0) {
+        userId = userRes.rows[0].user_id;
+      } else {
+        const defaultElder = await query(
+          `SELECT user_id FROM elderly_users ORDER BY user_id ASC LIMIT 1`
+        );
+        if (defaultElder.rowCount === 0) {
+          return;
+        }
+        userId = defaultElder.rows[0].user_id;
       }
-
-      const userId = userRes.rows[0].user_id;
       const sessionId = handlerInput.requestEnvelope.session?.sessionId || "alexa-session";
       const requestType = handlerInput.requestEnvelope.request.type;
       const intentName =

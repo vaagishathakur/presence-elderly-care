@@ -798,45 +798,70 @@ export function App() {
 
       setSimResponse(data);
 
+      const isDistressPhrase =
+        payload.intent === "DistressIntent" ||
+        Boolean(data?.distressDetected) ||
+        /(?:help|bachao|madad|fall|gir gay|emergency|unsafe|not safe|danger|pain|chot|unwell)/i.test(payload.transcript || "");
+
+      const elderId = selectedElder?.userId || selectedElder?.user_id || 1;
+
+      // Always persist interaction to live PostgreSQL backend
+      await api.createVoiceIntent({
+        userId: elderId,
+        residentName: selectedElder?.name || "Shanti Devi",
+        interactionIntent: isDistressPhrase ? "request_help" : (payload.intent || "check_in"),
+        transcript: payload.transcript || `Utterance for ${payload.intent}`,
+        summary: isDistressPhrase ? `Distress assistance requested: ${payload.transcript}` : `Voice interaction: ${payload.intent}`,
+        distressDetected: Boolean(isDistressPhrase),
+        distressLevel: isDistressPhrase ? "urgent" : "none",
+        distressPhrase: isDistressPhrase ? payload.transcript : null,
+        sentimentLabel: isDistressPhrase ? "negative" : ((data?.sentimentScore ?? 0.5) < -0.3 ? "negative" : (data?.sentimentScore ?? 0.5) > 0.3 ? "positive" : "neutral"),
+        moodScore: isDistressPhrase ? -0.9 : (data?.sentimentScore ?? 0.5),
+      }).catch((e) => console.warn("Live backend voice logging note:", e.message));
+
       // Dynamically reflect new interaction in live timeline
       const newInteraction = {
         interactionId: `INT-${Date.now()}`,
-        interactionIntent: data.intentName || payload.intent,
+        interactionIntent: data?.intentName || payload.intent,
         interactionAt: new Date().toISOString(),
         transcript: payload.transcript || `Utterance for ${payload.intent}`,
-        response: data.speechText || data.response || "Understood.",
-        summary: `Simulated voice interaction: ${payload.intent}`,
+        response: data?.speechText || data?.response || "Understood.",
+        summary: `Voice interaction: ${payload.intent}`,
         moodAnalysis: {
-          moodScore: data.sentimentScore ?? 0.65,
+          moodScore: isDistressPhrase ? -0.9 : (data?.sentimentScore ?? 0.65),
           confidenceScore: 0.92,
-          sentimentLabel: (data.sentimentScore ?? 0.65) > 0.3 ? "positive" : (data.sentimentScore ?? 0.65) < -0.3 ? "negative" : "neutral",
-          distressDetected: data.distressDetected || false,
-          distressPhrase: data.distressPhrase || null,
+          sentimentLabel: isDistressPhrase ? "negative" : (data?.sentimentScore ?? 0.65) > 0.3 ? "positive" : (data?.sentimentScore ?? 0.65) < -0.3 ? "negative" : "neutral",
+          distressDetected: Boolean(isDistressPhrase),
+          distressPhrase: isDistressPhrase ? payload.transcript : null,
         },
       };
 
       setInteractions((prev) => [newInteraction, ...prev]);
 
       // If distress triggered, immediately raise active critical alert
-      if (data.distressDetected || payload.intent === "DistressIntent") {
+      if (isDistressPhrase) {
         const newAlert = {
           alertId: `ALT-${Date.now()}`,
-          user_id: 1,
+          userId: elderId,
+          user_id: elderId,
           alertType: "Distress Phrase Detected",
           severity: "critical",
           triggeringPhrase: payload.transcript || "Critical Distress Triggered",
-          confidenceScore: data.confidenceScore || 0.95,
+          confidenceScore: data?.confidenceScore || 0.95,
           status: "open",
           escalationLevel: "Tier 1 (Twilio SMS Dispatched to Vaagisha)",
           createdAt: new Date().toISOString(),
           acknowledgedAt: null,
           resolvedBy: null,
         };
-        setAlerts((prev) => [newAlert, ...prev]);
+        setAlerts((prev) => [newAlert, ...prev.filter((a) => (a.alertId || a.alert_id) !== newAlert.alertId)]);
         showToast("⚠️ Critical distress alert triggered and escalated!");
       } else {
         showToast("Voice interaction recorded and processed successfully.");
       }
+
+      // Re-fetch authoritative elder data and open alerts from backend
+      await fetchElderData(elderId);
     } catch (err) {
       alert("Simulation error: " + err.message);
     } finally {

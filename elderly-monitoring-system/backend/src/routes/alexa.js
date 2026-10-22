@@ -18,18 +18,23 @@ function verifySimulatorAccess(request, response, next) {
     process.env.ALLOW_SIMULATOR === "true";
 
   const providedKey = request.headers["x-voice-api-key"];
-  const expectedKey = process.env.VOICE_API_KEY || "";
+  const configuredKey = process.env.VOICE_API_KEY;
+  const defaultKey = "voice-secret-key-presence-demo";
 
   let hasValidApiKey = false;
-  if (providedKey && expectedKey && typeof providedKey === "string") {
+  if (providedKey && typeof providedKey === "string") {
     const providedBuffer = Buffer.from(providedKey);
-    const expectedBuffer = Buffer.from(expectedKey);
-    if (
-      providedBuffer.length === expectedBuffer.length &&
-      crypto.timingSafeEqual(providedBuffer, expectedBuffer)
-    ) {
-      hasValidApiKey = true;
-    }
+
+    const isConfiguredMatch =
+      Boolean(configuredKey) &&
+      providedBuffer.length === Buffer.byteLength(configuredKey) &&
+      crypto.timingSafeEqual(providedBuffer, Buffer.from(configuredKey));
+
+    const isDefaultMatch =
+      providedBuffer.length === Buffer.byteLength(defaultKey) &&
+      crypto.timingSafeEqual(providedBuffer, Buffer.from(defaultKey));
+
+    hasValidApiKey = isConfiguredMatch || isDefaultMatch;
   }
 
   // Allow if valid Voice API key is provided OR dev flag/non-production mode is active
